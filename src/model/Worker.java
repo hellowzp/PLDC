@@ -12,7 +12,7 @@ public class Worker {
 	private int products;
 	private int breakTimes;
 	
-	private List<TimeLine> timeLine = new LinkedList<>();
+	private List<TimeLineEvent> timeLine = new LinkedList<>();
 	
 	public Worker(int iD, String name) {
 		ID = iD;
@@ -44,7 +44,9 @@ public class Worker {
 	}
 	
 	public int getLastWorkStation(){
-		System.out.println("time  size: " + timeLine.size());
+		System.out.println("Worker ID: " + ID + " timeLine size: " + timeLine.size());
+		if(timeLine.isEmpty()) 
+			return 0; 
 		return timeLine.get(timeLine.size()-1).workStation;
 	}
 
@@ -52,25 +54,25 @@ public class Worker {
 		if(timeLine.isEmpty()) 
 			return System.currentTimeMillis();
 		else
-			return ((LinkedList<TimeLine>)timeLine).getFirst().timestamp;
+			return ((LinkedList<TimeLineEvent>)timeLine).getFirst().timestamp;
 	}
 	
 	public long getLatestTime() {
 		if(timeLine.isEmpty()) 
 			return System.currentTimeMillis();
 		else
-			return ((LinkedList<TimeLine>)timeLine).getLast().timestamp;
+			return ((LinkedList<TimeLineEvent>)timeLine).getLast().timestamp;
 	}
 	
 	public long getWorkTime() {
 		return workTime;
 	}
 	
-	public List<TimeLine> getTimeLine() {
+	public List<TimeLineEvent> getTimeLine() {
 		return timeLine;
 	}
 	
-	public void addTimeLine(long ts, int workStation, String barcode) {
+	public void addTimeLineEvent(long ts, int workStation, String barcode) {
 		if(barcode==null) { 
 			if(working) {  //take a break
 				working = false;
@@ -86,23 +88,29 @@ public class Worker {
 			workTime += ts - getLatestTime();
 		}
 		
-		
-		TimeLine tm = new TimeLine(ts, workStation, barcode);
-		timeLine.add(tm);
-		System.out.println(tm + " " + timeLine.size());
+		timeLine.add(new TimeLineEvent(ts, workStation, barcode));
 	}
 	
 	//refer to HashMap.Node
-	static class TimeLine {  //without access modifier: package access
+	static class TimeLineEvent {  //without access modifier: package access
 		long timestamp;   
 		int workStation;
 		String barcode;
 		
-		TimeLine(long time, int workStation,String barcode) {
+		TimeLineEvent(long time, int workStation,String barcode) {
 			this.timestamp = time;
 			this.workStation = workStation;
 			this.barcode = barcode;
 		}
+	}
+	
+	public static void main(String[] args){
+		Worker w = new Worker(1,"wang");
+
+		for(int i=0; i<20; i++) {
+			w.addTimeLineEvent(System.currentTimeMillis(), i, ""+i);
+		}
+		System.out.println(w.timeLine.size() + " " + w.working + " " + w.workTime);
 	}
 	
 }

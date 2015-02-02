@@ -16,6 +16,8 @@ public class Repository {
 	}
 
 	public static List<Worker> loadWorkers() {
+		System.out.println("loading workers");
+
 		List<Worker> workers = new ArrayList<Worker>(10);
 		ResultSet res = SqlServerUtil.getWorkers();
 		try {
@@ -29,10 +31,19 @@ public class Repository {
 	}
 	
 	public static Worker getLastWorkerAtStation(int workStation){
+		System.out.println("worker size: " + workers.size() + " " + workers);
 		for(Worker w : workers){
 			if(w.getLastWorkStation()==workStation)
 				return w;
 		}
-		return null;
+		return null;  //exception should be thrown here
+	}
+	
+	//when calling this method outside this class, the class itself need to be 
+	//first initialized, which will initialize all its static members in order
+	//so loadWorkers() will be called beforehand
+	public static List<Worker> getWorkers() {
+		System.out.println("returning workers");
+		return workers;
 	}
 }

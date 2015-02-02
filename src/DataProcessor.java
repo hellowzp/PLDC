@@ -36,7 +36,7 @@ public class DataProcessor {
 	
 	private List<String> timeAxis = new LinkedList<>();
 	private List<Float> efficiences = new LinkedList<>();
-	private List<Worker> workers = Repository.loadWorkers();
+	private static final List<Worker> workers = Repository.getWorkers();
 	
 	private Timer timer = new Timer(true);
 	private long period;
@@ -45,6 +45,8 @@ public class DataProcessor {
 		this.table = table;
 		this.dataID = 0;
 		this.period = period;
+		
+		System.out.println("constructor");
 	}
 		
 	public List<Worker> getWorkers() {
@@ -89,11 +91,22 @@ public class DataProcessor {
 				String date = dateTime.substring(0, 10);
 				String time = dateTime.substring(11, 16);
 				
-				System.out.println(res.getRow() + " " + ts + " " + barcode + " " + workId);
+				System.out.println(workStation + " " + ts + " " + barcode + " " + workId);
 							
 				//delegate the task to the worker
-				Worker worker = workId>0 ? workers.get(workId) : Repository.getLastWorkerAtStation(workStation);
-				worker.addTimeLine(ts.getTime(), workStation, barcode);
+				//Worker worker = workId>0 ? workers.get(workId) : Repository.getLastWorkerAtStation(workStation);
+				Worker worker = null;
+				if(workId>0) {  //normal event
+					worker = workers.get(workId-1);
+				}else{
+					worker = Repository.getLastWorkerAtStation(workStation);
+				}
+				
+				if(worker==null) { //work station 17 status = 1 and count =1 (count = 3?  at 324)
+					
+				}else{
+					worker.addTimeLineEvent(ts.getTime(), workStation, barcode);
+				}
 				
 				timeAxis.add(time);
 				
@@ -115,9 +128,11 @@ public class DataProcessor {
 	}
 	
 	public static void main(String[] args) {
+		System.out.println("main\nstart worker size: " + workers.size() + " " + workers);
+		
 		DataProcessor dp = new DataProcessor("pldc170", 2000);
 		dp.processDataWithTimer(20);
-		
+				
 		Chart chart = new Chart(800, 600);
 
 	    Collection<Date> xData = new ArrayList<Date>();
@@ -172,10 +187,6 @@ public class DataProcessor {
 	    series.setMarker(SeriesMarker.CIRCLE);
 	    series.setLineStyle(SeriesLineStyle.SOLID);
 	 
-	    // Create Chart
-	    //Chart chart = QuickChart.getChart("Sample Chart", "X", "Y", "y(x)", xData, yData);
-	 
-	    // Show it
 	    new SwingWrapper(chart).displayChart();
 	}
 	
