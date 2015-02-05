@@ -31,7 +31,7 @@ public class Repository {
 	}
 	
 	public static Worker getLastWorkerAtStation(int workStation){
-		System.out.println("worker size: " + workers.size() + " " + workers);
+//		System.out.println("worker size: " + workers.size() + " " + workers);
 		for(Worker w : workers){
 			if(w.getLastWorkStation()==workStation)
 				return w;
@@ -45,5 +45,13 @@ public class Repository {
 	public static List<Worker> getWorkers() {
 		System.out.println("returning workers");
 		return workers;
+	}
+	
+	public static int getNumberOfWorkingWorkers() {
+		int n = 0;
+		for(Worker w : workers) {
+			if(w.isWorking()) n++;
+		}
+		return n;
 	}
 }

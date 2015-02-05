@@ -1,48 +1,37 @@
-import java.awt.Color;
-import java.awt.Font;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.text.DateFormat;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
-import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Date;
-import java.util.LinkedList;
 import java.util.List;
-import java.util.Locale;
 import java.util.Timer;
 import java.util.TimerTask;
 
+import ui.DataPlot;
 import util.SqlServerUtil;
-
-import com.xeiam.xchart.Chart;
-import com.xeiam.xchart.ChartColor;
-import com.xeiam.xchart.QuickChart;
-import com.xeiam.xchart.Series;
-import com.xeiam.xchart.SeriesColor;
-import com.xeiam.xchart.SeriesLineStyle;
-import com.xeiam.xchart.SeriesMarker;
-import com.xeiam.xchart.StyleManager;
-import com.xeiam.xchart.SwingWrapper;
-
 import model.Repository;
 import model.Worker;
 
 public class DataProcessor {
-	private String table;
+	private String tableName;
 	private int dataID;
 	
-	private List<String> timeAxis = new LinkedList<>();
-	private List<Float> efficiences = new LinkedList<>();
+	//this will be called before the main method
 	private static final List<Worker> workers = Repository.getWorkers();
+	//http://docs.oracle.com/javase/7/docs/api/java/text/SimpleDateFormat.html
+	//DateFormat sdf = new SimpleDateFormat("HH:mm:ss.S"); //time style
+	//java does not support static local variable
+	private static final DateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.S");
+	
+	private DataPlot plot = new DataPlot(); 
 	
 	private Timer timer = new Timer(true);
 	private long period;
 	
 	public DataProcessor(String table, long period) {
-		this.table = table;
+		this.tableName = table;
 		this.dataID = 0;
 		this.period = period;
 		
@@ -54,11 +43,11 @@ public class DataProcessor {
 	}
 
 	public String getTable() {
-		return table;
+		return tableName;
 	}
 
 	public void setTable(String table) {
-		this.table = table;
+		this.tableName = table;
 	}
 
 	public int getDataID() {
@@ -74,24 +63,43 @@ public class DataProcessor {
 	}
 
 	public void processData() {
-		ResultSet res = SqlServerUtil.getData(table, dataID);
+		ResultSet res = SqlServerUtil.getData(tableName, dataID);
+
+		try {
+			if(!res.next()) {
+				for(int i=0; i<workers.size(); i++) {
+					workers.get(i).printTimeLine();;
+				}
+				timer.cancel();
+				plot.summarize();
+			}
+		} catch (SQLException e1) {
+			e1.printStackTrace();
+		}
+		
 		try {
 			while(res.next()) {				
 				dataID = res.getInt(12); //"ID"
+				
 				Timestamp ts = res.getTimestamp(1);  //"DATA_TIME"
+//				Date date = res.getDate(1);
+//				Time time = res.getTime(1);
+				
+//				String dateTime = res.getString(1); 
+//				String dstr = dateTime.substring(0, 10);
+//				String tstr = dateTime.substring(11, 16);
+				
+//				System.out.println(ts + " " + date + " " + time + " " + date.getTime());
+			
 				int workStation = res.getInt(2); //"UNIT_CODE"
 				int workId = res.getInt(3);   //"WORKER_ID"
 				String barcode = res.getString(11); //"BARCODE"
+				
+				System.out.println(ts + " " + workStation + " " + workId + " " + barcode);
 
-				int counters = res.getInt(4); //"COUNTERS"
-				int status = res.getInt(5);   //"STATUS"
-				int error = res.getInt(6);    //"ERROR"
-				
-				String dateTime = res.getString(1);
-				String date = dateTime.substring(0, 10);
-				String time = dateTime.substring(11, 16);
-				
-				System.out.println(workStation + " " + ts + " " + barcode + " " + workId);
+//				int counters = res.getInt(4); //"COUNTERS"
+//				int status = res.getInt(5);   //"STATUS"
+//				int error = res.getInt(6);    //"ERROR"
 							
 				//delegate the task to the worker
 				//Worker worker = workId>0 ? workers.get(workId) : Repository.getLastWorkerAtStation(workStation);
@@ -107,9 +115,27 @@ public class DataProcessor {
 				}else{
 					worker.addTimeLineEvent(ts.getTime(), workStation, barcode);
 				}
+				 
+				Date time = null;
+				try {
+					time = sdf.parse(ts.toString());
+				} catch (ParseException e) {
+					e.printStackTrace();
+				}
+			    
+				float avgEfficiency = 0.0f;
+				int j =0;
+				for(int i=0; i<workers.size(); i++) {
+					Worker w = workers.get(i);
+					if(w.isWorking()) {
+						avgEfficiency += w.getEfficiency();
+						j++;
+					}
+				}
 				
-				timeAxis.add(time);
-				
+				if(avgEfficiency>0.0f) { //filter
+					plot.updatePlot(time, avgEfficiency/j );				
+				}
 			}
 		} catch (SQLException e) {
 			e.printStackTrace();
@@ -117,7 +143,7 @@ public class DataProcessor {
 		
 	}
 	
-	public void processDataWithTimer(int period) {
+	public void processDataWithTimer() {
 		TimerTask task = new TimerTask() {
 			@Override
 			public void run() {
@@ -130,64 +156,9 @@ public class DataProcessor {
 	public static void main(String[] args) {
 		System.out.println("main\nstart worker size: " + workers.size() + " " + workers);
 		
-		DataProcessor dp = new DataProcessor("pldc170", 2000);
-		dp.processDataWithTimer(20);
+		DataProcessor dp = new DataProcessor("pldc170", 200);
+		dp.processDataWithTimer();
 				
-		Chart chart = new Chart(800, 600);
-
-	    Collection<Date> xData = new ArrayList<Date>();
-	    Collection<Double> yData = new ArrayList<Double>();
-
-	    DateFormat sdf = new SimpleDateFormat("dd.MM.yyyy");
-	    Date date = null;
-	    for (int i = 1; i <= 10; i++)
-	    {
-	      try {
-	        date = sdf.parse(i + ".10.2008");
-	        System.out.println(date);
-	      } catch (ParseException e) {
-	        e.printStackTrace();
-	      }
-	      xData.add(date);
-	      yData.add(Double.valueOf(Math.random() * i));
-	    }
-
-	    chart.setChartTitle("LineChart03");
-	    chart.setXAxisTitle("X");
-	    chart.setYAxisTitle("Y");
-	    chart.getStyleManager().setPlotBackgroundColor(ChartColor.getAWTColor(ChartColor.GREY));
-	    chart.getStyleManager().setPlotGridLinesColor(new Color(255, 255, 255));
-	    chart.getStyleManager().setChartBackgroundColor(Color.WHITE);
-	    chart.getStyleManager().setLegendBackgroundColor(Color.PINK);
-	    chart.getStyleManager().setChartFontColor(Color.MAGENTA);
-	    chart.getStyleManager().setChartTitleBoxBackgroundColor(new Color(0, 222, 0));
-	    chart.getStyleManager().setChartTitleBoxVisible(true);
-	    chart.getStyleManager().setChartTitleBoxBorderColor(Color.BLACK);
-	    chart.getStyleManager().setPlotGridLinesVisible(false);
-
-	    chart.getStyleManager().setAxisTickPadding(20);
-
-	    chart.getStyleManager().setAxisTickMarkLength(15);
-
-	    chart.getStyleManager().setPlotPadding(20);
-
-	    chart.getStyleManager().setChartTitleFont(new Font("Monospaced", 1, 24));
-	    chart.getStyleManager().setLegendFont(new Font("Serif", 0, 18));
-	    chart.getStyleManager().setLegendPosition(StyleManager.LegendPosition.InsideSE);
-	    chart.getStyleManager().setLegendSeriesLineLength(12);
-	    chart.getStyleManager().setAxisTitleFont(new Font("SansSerif", 2, 18));
-	    chart.getStyleManager().setAxisTickLabelsFont(new Font("Serif", 0, 11));
-	    chart.getStyleManager().setDatePattern("dd-MMM");
-	    chart.getStyleManager().setDecimalPattern("#0.000");
-	    chart.getStyleManager().setLocale(Locale.GERMAN);
-
-	    Series series = chart.addSeries("Fake Data", xData, yData);
-	    series.setLineColor(SeriesColor.BLUE);
-	    series.setMarkerColor(Color.ORANGE);
-	    series.setMarker(SeriesMarker.CIRCLE);
-	    series.setLineStyle(SeriesLineStyle.SOLID);
-	 
-	    new SwingWrapper(chart).displayChart();
 	}
 	
 }

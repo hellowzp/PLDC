@@ -7,5 +7,6 @@
 	<classpathentry kind="lib" path="lib/VectorGraphics2D-0.9.1.jar"/>
 	<classpathentry kind="lib" path="lib/xchart-2.4.3.jar"/>
 	<classpathentry kind="lib" path="lib/xom-1.2.10.jar"/>
+	<classpathentry kind="lib" path="lib/SwingSet2.jar"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>

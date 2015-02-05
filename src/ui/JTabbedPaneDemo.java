@@ -1,4 +1,4 @@
-package view;
+package ui;
 
 import javax.swing.JTabbedPane;
 import javax.swing.ImageIcon;
@@ -13,8 +13,9 @@ import java.awt.*;
 import java.awt.event.*;
 
 public class JTabbedPaneDemo extends JPanel {
-    private static final long serialVersionUID = 1L;
     
+	private static final long serialVersionUID = 1L;
+	    
     static{
     	
 		try {
@@ -70,9 +71,10 @@ public class JTabbedPaneDemo extends JPanel {
             	System.exit(0);}
         });
 
-        frame.getContentPane().add(new JTabbedPaneDemo(), 
-                                   BorderLayout.CENTER);
+        frame.getContentPane().add( new JTabbedPaneDemo(), BorderLayout.CENTER);
         frame.setSize(400, 125);
+        //frame.setBounds(100, 100, 800, 600);
+        //frame.pack();
         frame.setVisible(true);
     }
 }
