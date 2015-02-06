@@ -10,9 +10,24 @@ import util.SqlServerUtil;
 public class Repository {
 	
 	private static final List<Worker> workers = loadWorkers();
+	private List<Product> products;
 	
+	public List<Product> getProducts() {
+		return products;
+	}
+
+	public Repository() {
+		products = new ArrayList<>();
+	}
+
 	public static String getWorkerName(int id) {
 		return workers.get(id)==null ? null : workers.get(id).getName();
+	}
+	
+	private static final Repository repos = new Repository();
+	
+	public static Repository getInstance() {
+		return repos;
 	}
 
 	public static List<Worker> loadWorkers() {
