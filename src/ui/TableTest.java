@@ -51,7 +51,6 @@ public class TableTest extends JFrame{
 			
 			@Override
 			public void actionPerformed(ActionEvent e) {
-				// TODO Auto-generated method stub
 				//获取要删除的行,没有选择是-1
 				int row = table.getSelectedColumn();
 				if(row == -1){

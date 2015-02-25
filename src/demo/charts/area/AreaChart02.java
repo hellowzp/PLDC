@@ -3,10 +3,10 @@ package demo.charts.area;
 import com.xeiam.xchart.Chart;
 import com.xeiam.xchart.ChartBuilder;
 import com.xeiam.xchart.StyleManager;
-import com.xeiam.xchart.StyleManager.ChartType;
-import com.xeiam.xchart.StyleManager.LegendPosition;
 import com.xeiam.xchart.SwingWrapper;
+
 import demo.charts.ExampleChart;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -24,8 +24,8 @@ public class AreaChart02
   {
     Chart chart = new ChartBuilder().chartType(StyleManager.ChartType.Area).width(800).height(600).title(getClass().getSimpleName()).xAxisTitle("X").yAxisTitle("Y").build();
 
-    List xData = new ArrayList();
-    List yData = new ArrayList();
+    List<Integer> xData = new ArrayList<Integer>();
+    List<Integer> yData = new ArrayList<Integer>();
     for (int i = 0; i < 5; i++) {
       xData.add(Integer.valueOf(i));
       yData.add(Integer.valueOf(i * i));

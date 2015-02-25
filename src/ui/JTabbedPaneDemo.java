@@ -8,9 +8,13 @@ import javax.swing.JFrame;
 import javax.swing.UIManager;
 import javax.swing.UnsupportedLookAndFeelException;
 import javax.swing.border.BevelBorder;
+import javax.swing.event.ChangeEvent;
+import javax.swing.event.ChangeListener;
 
 import java.awt.*;
 import java.awt.event.*;
+import java.util.Timer;
+import java.util.TimerTask;
 
 public class JTabbedPaneDemo extends JPanel {
     
@@ -34,7 +38,7 @@ public class JTabbedPaneDemo extends JPanel {
 
 	public JTabbedPaneDemo() {
         ImageIcon icon = new ImageIcon("java-swing-tutorial.JPG");
-        JTabbedPane jtbExample = new JTabbedPane();
+        final JTabbedPane jtbExample = new JTabbedPane();
         jtbExample.setBorder(new BevelBorder(BevelBorder.RAISED)); 
         
         JPanel jplInnerPanel1 = createInnerPanel("Tab 1 Contains Tooltip and Icon");
@@ -53,6 +57,31 @@ public class JTabbedPaneDemo extends JPanel {
         //Add the tabbed pane to this panel.
         setLayout(new GridLayout(1, 1)); 
         add(jtbExample);
+        
+        final ChangeListener changeListener = new ChangeListener() {
+            public void stateChanged(ChangeEvent changeEvent) {
+              JTabbedPane sourceTabbedPane = (JTabbedPane) changeEvent.getSource();
+              int index = sourceTabbedPane.getSelectedIndex();
+              System.out.println("Tab changed to: " + sourceTabbedPane.getTitleAt(index));
+            }
+        };
+        jtbExample.addChangeListener(changeListener);
+        
+        final Timer timer = new Timer(true);
+    	final TimerTask task = new TimerTask() {
+    		int index = 0;
+    		
+    		@Override
+    		public void run() {
+    			index++;
+    			if(index>3) index=0;
+    			System.out.println(index);
+    			jtbExample.setSelectedIndex(index);
+    			ChangeEvent e = new ChangeEvent(jtbExample);
+    			changeListener.stateChanged(e);
+    		}		
+    	};
+    	timer.schedule(task, 10, 2000);
     }
 
     protected JPanel createInnerPanel(String text) {

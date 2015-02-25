@@ -226,7 +226,7 @@ public class PlotContentLineChart extends PlotContent {
           series.getMarker().paint(g, xOffset, yOffset, getChartPainter().getStyleManager().getMarkerSize());
         }
 
-        // paint errorbars
+        // paint error-bars
         if (errorBars != null) {
 
           double eb = ebItr.next().doubleValue();

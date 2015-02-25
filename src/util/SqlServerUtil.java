@@ -43,12 +43,12 @@ public class SqlServerUtil {
 	public static ResultSet getData(String table, int ID) {
 		PreparedStatement preStat = null;
 		ResultSet res = null;
-		String sql = "select * from " + table + " where ID > " + ID + " AND ID <= " + (ID+10);
+		String sql = "select * from " + table + " where ID > ? AND ID <= ?";
 		try {
 			preStat = con.prepareStatement(sql);
 //			preStat.setString(1, table);
-//			preStat.setInt(2, ID);
-//			preStat.setInt(3, ID+20);
+			preStat.setInt(1, ID);
+			preStat.setInt(2, ID+20);
 			res = preStat.executeQuery();
         } catch (SQLException e) {
 			e.printStackTrace();
