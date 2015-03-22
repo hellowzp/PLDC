@@ -1,0 +1,5 @@
+Product Name,Stage Name,Work Station,Work ID,Standard Time/Min,Minimum time/Min,Maximum time/Min,Material-1,Material-2
+A,stage1,10,,4.5,,,10,10
+A,stage2,14,,4.8,,,10,10
+A,stage3,16,,5.2,,,10,10
+A,stage4,18,,4.5,,,10,10
