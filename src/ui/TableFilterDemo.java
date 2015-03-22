@@ -43,6 +43,8 @@ import java.awt.Dimension;
 import java.awt.Component;
 
 public class TableFilterDemo extends JPanel {
+    private static final long serialVersionUID = 1L;
+	
     private boolean DEBUG = false;
     private JTable table;
     private JTextField filterText;
@@ -141,7 +143,11 @@ public class TableFilterDemo extends JPanel {
 
 
     class MyTableModel extends AbstractTableModel {
-        private String[] columnNames = {"First Name",
+        /**
+		 * 
+		 */
+		private static final long serialVersionUID = 1L;
+		private String[] columnNames = {"First Name",
                                         "Last Name",
                                         "Sport",
                                         "# of Years",

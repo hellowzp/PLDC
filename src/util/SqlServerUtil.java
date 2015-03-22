@@ -29,9 +29,9 @@ public class SqlServerUtil {
 	private static Connection createConnection() {
 		Connection con = null;
 		try {
-			String conString = "jdbc:sqlserver://localhost\\MSSQLSERVER;" +
-							   "databaseName=PLDC;" +     //windows authentication
-							   "integratedSecurity=true"; //driver + server + instance + db
+			String conString = "jdbc:sqlserver://PLDC-PC\\SQLEXPRESS:1433;" +
+							   "databaseName=PLDC;" +     // windows authentication
+							   "integratedSecurity=true"; // driver//serverName\\instance:port (port and instance not required if default)
 			con = DriverManager.getConnection(conString); 
 		} catch (SQLException e) {
 			e.printStackTrace();
@@ -39,27 +39,73 @@ public class SqlServerUtil {
 		System.out.println("connected successfully!");
 		return con;
 	}
+	
+	public static void addIDKey(String table) {
+		Statement st = null;
+		try {
+			st = con.createStatement();
+		} catch (SQLException e1) {
+			e1.printStackTrace();
+		}
+		
+		String sql = "IF COL_LENGTH('" + table + "', 'ID') IS NULL BEGIN ALTER TABLE " 
+				   + table + " ADD ID INT IDENTITY(1,1) PRIMARY KEY END;";
+		try {
+			int count = st.executeUpdate(sql);
+			System.out.println(count);
+		} catch (SQLException e) {
+			e.printStackTrace();
+		}
+	}
+	
+	public static void clearMessages() {
+		Statement st = null;
+		try {
+			st = con.createStatement();
+		} catch (SQLException e1) {
+			e1.printStackTrace();
+		}
+		String sql = "delete from [PLDC].[dbo].[PLDC_MESSAGE];";
+		try {
+			int count = st.executeUpdate(sql);
+			System.out.println(count);
+		} catch (SQLException e) {
+			e.printStackTrace();
+		}
+	}
 
 	public static ResultSet getData(String table, int ID) {
 		PreparedStatement preStat = null;
 		ResultSet res = null;
-		String sql = "select * from " + table + " where ID > ? AND ID <= ?";
+		String sql = "select * from " + table + " where ID > ?"; // AND ID <= ?" ;
 		try {
 			preStat = con.prepareStatement(sql);
-//			preStat.setString(1, table);
 			preStat.setInt(1, ID);
-			preStat.setInt(2, ID+20);
+//			preStat.setInt(2, ID+20);
 			res = preStat.executeQuery();
         } catch (SQLException e) {
 			e.printStackTrace();
 		}	
 		return res;
+	}
+	
+	public static void sendMessage(int ws, String msg) {
+		PreparedStatement preStat = null;
+		String sql = "insert into [PLDC].[dbo].[PLDC_MESSAGE] (DATE_TIME, UNIT_CODE, MESSAGE) VALUES (getdate(), ? , ?)" ;
+		try {
+			preStat = con.prepareStatement(sql);
+			preStat.setInt(1, ws);
+			preStat.setString(2, msg);
+			preStat.executeUpdate();
+        } catch (SQLException e) {
+			e.printStackTrace();
+		}	
 	}
 	
 	public static ResultSet getWorkers() {
 		PreparedStatement preStat = null;
 		ResultSet res = null;
-		String sql = "select * from Workers";
+		String sql = "select * from [PLDC].[dbo].[Workers]";
 		try {
 			preStat = con.prepareStatement(sql);
 			res = preStat.executeQuery();
@@ -69,22 +115,21 @@ public class SqlServerUtil {
 		return res;
 	}
 	
-	public static Map<String,String> getAllUsers() {
+	public static Map<String,String[]> getAllUsers() {
 		ResultSet res = null;
-		Map<String,String> users = new HashMap<String,String>();
+		Map<String,String[]> users = new HashMap<String,String[]>();
 		try {
 			Statement state = con.createStatement();
-			res = state.executeQuery("Select * from UserData");
+			res = state.executeQuery("Select * from [PLDC].[dbo].[Users]");
             while(res.next()) {
-            	users.put(res.getString(2), res.getString(3));
+            	String name = res.getString(2);
+            	String[] uinfo =  {res.getString(3), res.getString(5)};
+            	users.put(name, uinfo );
             }
 		} catch (SQLException e1) {
 			e1.printStackTrace();
 		}
-		for (Map.Entry<String, String> entry : users.entrySet())
-        {
-              System.out.println(entry.getKey() + " " + entry.getValue());
-        }
+		
 		return users;
 	}
 	

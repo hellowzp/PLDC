@@ -1,9 +1,5 @@
 package model;
 
-import java.io.BufferedReader;
-import java.io.FileNotFoundException;
-import java.io.FileReader;
-import java.io.IOException;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
@@ -14,12 +10,13 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.LinkedList;
 import java.util.List;
+
 import util.SqlServerUtil;
 
 public class Repository {
 	
 	private final List<Worker> workers = loadWorkers();
-	private final List<Product> products = new ArrayList<>(5);
+	private final List<Product> products = new ArrayList<>();
 	
 	//real-time data
 	private static final DateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.S");
@@ -34,129 +31,73 @@ public class Repository {
 		
 	}
 	
-	private Repository(List<Product> products) throws Exception {
-		if(products==null)
-			throw new Exception("The products can not be null");
-		this.products.addAll(products);
-	}
-	
 	public static Repository getInstance() {
 		return repos;
 	}
 	
-	public void setProducts(String path) {
-		if (!path.endsWith(".csv"))
-			return;
-		
-		BufferedReader br = null;
-		try {
-			br = new BufferedReader(new FileReader(path));
-		} catch (FileNotFoundException e) {
-			e.printStackTrace();
-		}
-
-		try {
-			String line = br.readLine();
-			final String[] columns = line.split(",");
-//			List<Product> 
-//			for(int i=3; i<columns.length; i++) {
+	//initialize products from csv file
+//	public void initProducts(String path) {
+//		if (!path.endsWith(".csv"))
+//			return;
+//
+//		BufferedReader br = null;
+//		try {
+//			br = new BufferedReader(new FileReader(path));
+//		} catch (FileNotFoundException e) {
+//			e.printStackTrace();
+//		}
+//
+//		try {
+//			String line = br.readLine();
+//			final String[] columns = line.split(",");
+//			//take care of the last dummy row: end of file
+//			while ((line = br.readLine()) != null && line.length()>5) {
+//				String[] values = line.split(",");
+////				System.out.println(line + " " + values.length);
+////				for(int i=0; i<values.length; i++) System.out.println(i+values[i]+i);
+////				System.out.flush();
+//				String proName = values[0];
+//
+//				Product pro = getProduct(proName);
+//				if (pro == null) {
+//					pro = new Product(proName);
+//					products.add(pro);
+//				}
+//
+//				int workStation = Integer.valueOf(values[1]);
+//				long stdTime = (long) (Float.valueOf(values[2]) * 60000);
+//				Product.Stage stage = new Product.Stage(workStation, stdTime);
+//
+//				for (int i = 3; i < values.length; i++) {
+//					String material = columns[i];
+//					int amount = Integer.valueOf(values[i]);
+//					stage.addBOM(material, amount);
+//				}
 //				
+//				pro.addStage(stage);
+//
 //			}
-			//take care of the last dummy row: end of file
-			while ((line = br.readLine()) != null && line.length()>5) {
-				String[] values = line.split(",");
-				String proName = values[0];
-
-				Product pro = getProduct(proName);
-				if (pro == null) {
-					pro = new Product(proName);
-					products.add(pro);
-				}
-
-				int workStation = Integer.valueOf(values[1]);
-				long stdTime = (long) (Float.valueOf(values[2]) * 60000);
-				Product.Stage stage = new Product.Stage(workStation, stdTime);
-
-				for (int i = 3; i < values.length; i++) {
-					String material = columns[i];
-					int amount = Integer.valueOf(values[i]);
-					stage.addBOM(material, amount);
-				}
-				
-				pro.addStage(stage);
-
-			}
-		} catch (IOException e) {
-			e.printStackTrace();
-		} finally {
-			try {
-				br.close();
-			} catch (IOException e) {
-				e.printStackTrace();
-			}
-		}
-	}
+//		} catch (IOException e) {
+//			e.printStackTrace();
+//		}
+//
+//	}
 	
-	public void assignProducts(String path) {
-		
+	public void initProducts(List<Product> products) {
+		clearData();
+		this.products.addAll(products);
 	}
 	
 	public void initProducts(String path) {
-		if (!path.endsWith(".csv"))
-			return;
-
-		BufferedReader br = null;
-		try {
-			br = new BufferedReader(new FileReader(path));
-		} catch (FileNotFoundException e) {
-			e.printStackTrace();
-		}
-
-		try {
-			String line = br.readLine();
-			final String[] columns = line.split(",");
-			//take care of the last dummy row: end of file
-			while ((line = br.readLine()) != null && line.length()>5) {
-				String[] values = line.split(",");
-//				System.out.println(line + " " + values.length);
-//				for(int i=0; i<values.length; i++) System.out.println(i+values[i]+i);
-//				System.out.flush();
-				String proName = values[0];
-
-				Product pro = getProduct(proName);
-				if (pro == null) {
-					pro = new Product(proName);
-					products.add(pro);
-				}
-
-				int workStation = Integer.valueOf(values[1]);
-				long stdTime = (long) (Float.valueOf(values[2]) * 60000);
-				Product.Stage stage = new Product.Stage(workStation, stdTime);
-
-				for (int i = 3; i < values.length; i++) {
-					String material = columns[i];
-					int amount = Integer.valueOf(values[i]);
-					stage.addBOM(material, amount);
-				}
-				
-				pro.addStage(stage);
-
-			}
-		} catch (IOException e) {
-			e.printStackTrace();
-		}
-
+		clearData();
 	}
 	
-	public void updateProducts(String path) {
+	private void clearData() {
 		products.clear();
-		initProducts(path);
-	}
-	
-	public void addProducts(List<Product> products) throws Exception { 
-		if(products==null)
-			throw new Exception("The products can not be null");
-		this.products.addAll(products);
+		xDate.clear();
+		yEfficiency.clear();
+		yProductivity.clear();
+		yPerformance.clear();
 	}
 	
 	public List<Product> getProducts() {
@@ -174,6 +115,7 @@ public class Repository {
 	public Product.Stage getStage(int workStation) {
 		for(Product p : products) {
 			Product.Stage s = p.getStage(workStation);
+			System.out.println("Repos getStage: " + s);
 			if(s!=null) return s;
 		}
 		return null;
@@ -211,66 +153,76 @@ public class Repository {
 	}
 	
 	public String getWorkerName(int id) {
-		return getWorkers().get(id)==null ? null : getWorkers().get(id).getName();
+		return getWorker(id)==null ? null : getWorker(id).getName();
 	}
 	
-	public Worker getLastWorkerAtStation(int workStation){
-		for(Worker w : getWorkers()){
-			if(w.getLastWorkStation()==workStation)
-				return w;
+	public int getWorkerID(String name) {
+		for(Worker w : workers) {
+			if(w.getName().equals(name))
+				return w.getID();
 		}
-		return null;  //exception should be thrown here
+		return 0;
 	}
 		
 	public int getNumberOfWorkingWorkers() {
 		int n = 0;
-		for(Worker w : getWorkers()) {
+		for(Worker w : workers) {
 			if(w.isWorking()) n++;
 		}
 		return n;
 	}
+	
+	public Worker getStageWorker(int ws) {
+		Worker w = null;
+		for(Product p : products) {
+			for(Product.Stage s : p.getStages()) {
+				if(s.getWorkStation()==ws)
+					return getWorker(s.getWorkerID());
+			}
+		}
+		return w;
+	}
 
-	public void readEvent(Timestamp ts, int workStation, int workId, String barcode) {
-		Worker worker = workId>0 ? workers.get(workId-1) : getLastWorkerAtStation(workStation);
+	public void readEvent(Timestamp ts, int workStation, int workerId, String barcode) {
+		//get worker based on the assignment
+		Worker worker = getStageWorker(workStation);
 		
 		if(worker==null) { //work station 17 status = 1 and count =1 (count = 3?  at 324)
-			
+			System.out.println("Cannot find worker at station " + workStation + " with ID " + workerId);
 		}else{
-			worker.addTimeLineEvent(ts.getTime(), workStation, barcode);
+			worker.addTimeLineEvent(ts.getTime(), workStation, workerId, barcode);
+//			if(workerId!=0 && worker.getID() != workerId)
+//				SqlServerUtil.sendMessage(workStation, "Wrong worker ID");
 		}
 	    
-		Date time = null;
-		try {
-			time = sdf.parse(ts.toString());
-		} catch (ParseException e) {
-			e.printStackTrace();
-		}
-	    
-		//add real-time data
-		float avgEfficiency = 0.0f;
-		float avgProductivity = 0.0f;
-		float avgPerformance = 0.0f;
-		int j = 0;
-		for(int i=0; i<workers.size(); i++) {
-			Worker w = workers.get(i);
-			if(w.isWorking()) {
-				avgEfficiency += w.getEfficiency();
-				avgProductivity += w.getProductivity();
-				avgPerformance += w.getPerformance();
-				j++;
+		//add real-time data if a new stage is finished
+		if(barcode!=null && Character.isDigit(barcode.charAt(0))) {
+			Date time = null;
+			try {
+				time = sdf.parse(ts.toString());
+			} catch (ParseException e) {
+				e.printStackTrace();
 			}
-		}		
-		
-		xDate.add(time);
-		yEfficiency.add(avgEfficiency*1.0f/j);
-		yProductivity.add(avgProductivity);
-		yPerformance.add(avgPerformance);
-		
-//		if(avgEfficiency>0.0f) { //filter
-//			xDate.add(time);
-//			yEfficiency.add(avgEfficiency*1.0f/j);
-//		}
-		
+		    
+			float avgEfficiency = 0.0f;
+			float avgProductivity = 0.0f;
+			float avgPerformance = 0.0f;
+			int j = 0;
+			for(int i=0; i<workers.size(); i++) {
+				Worker w = workers.get(i);
+				if(w.isWorking()) {
+					avgEfficiency += w.getAvgEfficiency();
+					avgProductivity += w.getProductivity();
+					avgPerformance += w.getPerformance();
+					j++;
+				}
+			}		
+			
+			xDate.add(time);
+			yEfficiency.add(avgEfficiency*1.0f/j);
+			yProductivity.add(avgProductivity*1.0f/j);
+			yPerformance.add(avgPerformance*1.0f/j);
+		}	
 	}
 
 	public List<Date> getXDate() {

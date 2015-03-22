@@ -1,13 +1,20 @@
 package model;
 
+import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.ListIterator;
 import java.util.Map;
 import java.util.Map.Entry;
 
-public class Worker {
+import util.SqlServerUtil;
+
+public class Worker implements Serializable{
+	private static final long serialVersionUID = 1L;
+	
 	private int ID;
 	private String name;
 	
@@ -16,20 +23,29 @@ public class Worker {
 	public static final int WORKING = 1;
 	private int workState;
 	
-	private long workTime;	
+	private long workTime;
+	private long lastCompletionTime;
 	private int breakTimes;
 	
 	//completed number of each stage 
-	private Map<Product.Stage, Integer> completedProductStages;
-	private List<String> scannedMaterials = new ArrayList<String>();
+	private int completedStages;
+	private List<Product.Stage> workingStages = new ArrayList<Product.Stage>(1);
+	private Map<String, Integer> scannedItems = new HashMap<>(); //raw material item code
+
 	private List<TimeLineEvent> timeLine = new LinkedList<>();
+	private List<Float> AvgEfcList = new LinkedList<>();
+		
+	private List<Integer> auth = new ArrayList<>();
 	
 	public Worker(int iD, String name) {
 		ID = iD;
 		this.name = name;
 		
 		workState = NOT_STARTED;
-		completedProductStages = new HashMap<Product.Stage, Integer>();
+	}
+	
+	public void addAuth(int authLevel) {
+		this.auth.add(authLevel);
 	}
 	
 	public int getID() {
@@ -40,16 +56,16 @@ public class Worker {
 		return name;
 	}
 	
-	public int getCompletedProducts() {
-		int n = 0;
-		for(Integer value : completedProductStages.values()) {
-			n += value;
-		}
-		return n;
+	public int getCompletedStages() {
+		return completedStages;
 	}
 	
 	public int getWorkState() {
 		return workState;
+	}
+	
+	public boolean isOnWork() {
+		return workState == WORKING;
 	}
 	
 	public String getWorkStateString() {
@@ -66,41 +82,103 @@ public class Worker {
 		return breakTimes;
 	}
 	
-	public float getEfficiency() {
+	private long getStandardTime() {		
 		long standardTime = 0;
-		for(Entry<Product.Stage, Integer> entry : completedProductStages.entrySet()) {
-			standardTime += entry.getValue() * entry.getKey().standardTime;
+		for(Product.Stage s: workingStages) {
+			standardTime += s.getStandardTime();
+		}	
+		return standardTime;
+	}
+	
+	public long getLastCompletionTime() {  // in mS
+		int size = timeLine.size();
+		if(size<2) return -1;
+		
+		long ls = 0;  //last time line
+		String lastBarcode = null;
+		long fs = 0;  //last item
+		long bs = 0;  //break time
+		boolean stage = false; 
+		boolean stacked = false;
+		// Generate an iterator. Start just after the last element.
+		ListIterator<TimeLineEvent> it = timeLine.listIterator(timeLine.size());
+
+		// Iterate in reverse.
+		while(it.hasPrevious()) {
+		  TimeLineEvent te = it.previous();
+		  if(te.ts<lastCompletionTime) break;
+		  
+		  if(Character.isDigit( te.barcode.charAt(0)) ) {
+			  stage = true;
+			  fs = te.ts;			  
+		  }
+		  if(!stage) continue;
+		  
+		  ls = te.ts;
+		  lastBarcode = te.barcode;
+		  
+		  if( Character.isWhitespace( te.barcode.charAt(0)) ) {
+			  stacked = !stacked;
+			  if( Character.isWhitespace( lastBarcode.charAt(0)) && stacked){
+				  bs += ls - te.ts;
+			  }
+		  }
+		  
 		}
-		return standardTime>0 ? workTime*1.0f/standardTime : 0.0f;  
+		
+		long ret = fs - lastCompletionTime - bs;
+		return ret>0 ? ret : 0;
+	}
+	
+	public float getLastEfficiency(){
+		long lastCmpt = getLastCompletionTime();
+		return lastCmpt<0 ? 0.0f : lastCmpt * 1.0f / getStandardTime();
+	}
+	
+	public float getAvgEfficiency() {
+		if(workTime == 0) return 0.0f;
+		
+		long standardTime = getStandardTime() * completedStages;
+
+		if(!scannedItems.isEmpty()) {
+			for(Integer value : scannedItems.values()) 
+				standardTime += value * 5000;    //each scanning may take 5S
+		}
+		
+		return standardTime * 1.0f / workTime;
 	}
 	
 	public float getProductivity() {
-		if(timeLine.isEmpty()) return 0.0f;
+		if(workTime==0) return 0.0f;
 		long totalTime = getLastTime() - getStartTime();
-		return workTime * 1.00f / totalTime;
+		return workTime * 1.0f / totalTime;
 	}
 	
 	public float getPerformance() {
-		return getEfficiency() * getProductivity();
+		return getAvgEfficiency() * getProductivity();
 	}
 	
-	public int getLastWorkStation(){
-//		System.out.println("Worker ID: " + ID + " timeLine size: " + timeLine.size());
-		if(timeLine.isEmpty()) 
-			return 0; 
-		return timeLine.get(timeLine.size()-1).workStation;
+	public List<Float> getEfficiencyList() {
+		return AvgEfcList;
+	}
+	
+	public List<Date> getTimelineList() {
+		List<Date> date = new LinkedList<Date>();
+		for(TimeLineEvent t : timeLine)
+			date.add(new Date(t.ts));
+		return date;
 	}
 
-	public long getStartTime() {
+	private long getStartTime() {
 		if(timeLine.isEmpty()) 
 			return System.currentTimeMillis();
 		else
 			return ((LinkedList<TimeLineEvent>)timeLine).getFirst().ts;
 	}
 	
-	public long getLastTime() {
+	private long getLastTime() {
 		if(timeLine.isEmpty()) 
-			return 0;
+			return System.currentTimeMillis();
 		else
 			return ((LinkedList<TimeLineEvent>)timeLine).getLast().ts;
 	}
@@ -109,12 +187,98 @@ public class Worker {
 		return workTime;
 	}
 	
-	public List<TimeLineEvent> getTimeLine() {
+	//called after assignment in Product.assignWorker()
+	protected void addStage(Product.Stage s) {
+		workingStages.add(s);
+	}
+	
+	public List<TimeLineEvent> getTimeLineEvents() {
 		return timeLine;
 	}
 	
-	public List<String> getScannedMaterials() {
-		return scannedMaterials;
+	public Map<String,Integer> getScannedMaterials() {
+		return scannedItems;
+	}
+	
+	//mtr: BOM material in setting file
+	public int getScannedMaterialAmount(String mtr) {
+		if(scannedItems.isEmpty()) return 0;
+		for(Entry<String, Integer> entry : scannedItems.entrySet()) {
+			String key = entry.getKey();
+			if(key.indexOf(mtr)>0) {
+				int qIndex = key.lastIndexOf("Q");
+//				int iIndex = key.lastIndexOf("I");
+				int qty = Integer.valueOf(key.substring(qIndex+1, key.length()));
+				return completedStages * qty;
+			}
+		}
+		return -1;
+	}
+	
+	public void addTimeLineEvent(long ts, int workStation, int workerId, String barcode) {
+		//if no timeline available, set lastTime to ts so the calculated work-time is 0 
+//		long lastTS = getLastTimeline();
+//		lastTS = lastTS>0 ? lastTS : ts;
+		long lastTS = 0;
+		if(workState == NOT_STARTED) {
+			lastTS = ts;
+			lastCompletionTime = ts;
+		} else {
+			lastTS = ((LinkedList<TimeLineEvent>) timeLine).getLast().ts;
+		}
+		
+		System.out.println("worker read data: " + workStation + " " + this.ID + " " + barcode + " " + workState);
+
+//		System.out.println(barcode);
+		if(barcode==null) barcode = new String("  ");
+		else barcode = barcode.trim();
+		
+		timeLine.add(new TimeLineEvent(ts, workStation, barcode));
+		
+		if( Character.isWhitespace(barcode.charAt(0))) { //empty bar-code
+			if(workState==WORKING) {  //take a break
+				workState = BREAK;
+				breakTimes++;
+				workTime += ts - lastTS;
+			}else{         //begin or restart to work
+				workState = WORKING;				
+			}	
+			
+			SqlServerUtil.sendMessage(workStation, "Worker ID= " + workerId);
+			
+		}else if( Character.isDigit(barcode.charAt(0)) ) {  //scan a new item
+			workState = WORKING;
+			
+			completedStages++;
+			workTime += ts - lastTS;
+			lastCompletionTime = ts;
+			
+			AvgEfcList.add(getAvgEfficiency());
+			
+			sendFeedbackMessage(workStation);
+			
+		}else if(barcode.startsWith("A")){   //scan materials
+			workState = WORKING;
+			Integer value = scannedItems.get(barcode);
+			if(value==null)
+				scannedItems.put(barcode, 1);
+			else 
+				scannedItems.put(barcode, value+1);
+			
+			sendFeedbackMessage(workStation);
+			
+		}else if(barcode.startsWith("P")) {  //final product
+			sendFeedbackMessage(workStation);
+		}
+		
+	}
+	
+	private void sendFeedbackMessage(int workStation) {
+		long t = getLastCompletionTime();
+		if(t>0) t = t/1000; 
+		else t = 0;
+		int f = (int) (getAvgEfficiency() * 100);	
+		SqlServerUtil.sendMessage(workStation, "E"+f+"%"+"Q"+completedStages+"T"+t+"sec");		
 	}
 	
 	public void printTimeLine() {
@@ -123,39 +287,7 @@ public class Worker {
 			System.out.println(e.ts + " " + e.workStation + " " + e.barcode );
 		}
 	}
-	
-	public void addTimeLineEvent(long ts, int workStation, String barcode) {
-		//if no timeline available, set lastTime to ts so the calculated work-time is 0 
-		long lastTS = getLastTime();
-		lastTS = lastTS>0 ? lastTS : ts;
-		
-		if( Character.isWhitespace(barcode.charAt(0)) ) { //empty bar-code
-			if(workState==WORKING) {  //take a break
-				workState = BREAK;
-				breakTimes++;
-				workTime += ts - lastTS;
-			}else{         //begin or restart to work
-				workState = WORKING;				
-			}			
-		}else{
-			if( Character.isDigit(barcode.charAt(0)) ){ //scan a new item
-				Product.Stage s = Repository.getInstance().getStage(workStation);
-				if(completedProductStages.containsKey(s)){
-					int value = completedProductStages.get(s) + 1;
-					completedProductStages.replace(s, value);
-				}else{
-					completedProductStages.put(s, 1);
-				}
-				workTime += ts - lastTS;
-			}else{   //scan materials
-				scannedMaterials.add(barcode);
-				workTime += ts - lastTS;
-			}
-		}
-		
-		timeLine.add(new TimeLineEvent(ts, workStation, barcode));
-	}
-	
+
 	//refer to HashMap.Node
 	static class TimeLineEvent {  //without access modifier: package access
 		long ts;   
@@ -168,16 +300,7 @@ public class Worker {
 			this.barcode = barcode;
 		}
 	}
-	
-	public static void main(String[] args){
-		Worker w = new Worker(1,"wang");
 
-		for(int i=0; i<20; i++) {
-			w.addTimeLineEvent(System.currentTimeMillis(), i, ""+i);
-		}
-		System.out.println(w.timeLine.size() + " " + w.workTime);
-	}
-	
 	public enum WorkState {
 		NOT_STARTED(-1), WORKING(1), BREAK(0);
 		
@@ -190,5 +313,9 @@ public class Worker {
 		public int getValue() {
 			return value;
 		}
+	}
+
+	public List<Integer> getAuthLevels() {
+		return auth;
 	}
 }

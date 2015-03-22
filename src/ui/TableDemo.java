@@ -17,7 +17,11 @@ import java.awt.GridLayout;
  * uses a custom TableModel.
  */
 public class TableDemo extends JPanel {
-    private boolean DEBUG = false;
+    /**
+	 * 
+	 */
+	private static final long serialVersionUID = 1L;
+	private boolean DEBUG = false;
  
     public TableDemo() {
         super(new GridLayout(1,0));
@@ -34,6 +38,8 @@ public class TableDemo extends JPanel {
     }
  
     class MyTableModel extends AbstractTableModel {
+        private static final long serialVersionUID = 1L;
+		
         private String[] columnNames = {"First Name",
                                         "Last Name",
                                         "Sport",
