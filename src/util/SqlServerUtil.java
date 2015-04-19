@@ -29,7 +29,7 @@ public class SqlServerUtil {
 	private static Connection createConnection() {
 		Connection con = null;
 		try {
-			String conString = "jdbc:sqlserver://PLDC-PC\\SQLEXPRESS:1433;" +
+			String conString = "jdbc:sqlserver://localhost\\SQLEXPRESS:1433;" +
 							   "databaseName=PLDC;" +     // windows authentication
 							   "integratedSecurity=true"; // driver//serverName\\instance:port (port and instance not required if default)
 			con = DriverManager.getConnection(conString); 
