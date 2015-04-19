@@ -1,19 +1,23 @@
 package model;
 
-import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-public class Product implements Serializable{
-	private static final long serialVersionUID = 1L;
+public class Product {
 	
+	private String series;
 	private String name;
 	private String barcode;
 	private List<Stage> stages = new ArrayList<>();
 	
 	public Product(String name) {
+		this(null,name);
+	}
+	
+	public Product(String ser, String name) {
+		this.series = ser;
 		this.name = name;
 	}
 	
@@ -43,7 +47,7 @@ public class Product implements Serializable{
 	
 	public Stage getStage(int workStation) {
 		for(Stage s : stages) {
-			System.out.println(s.workStation);
+			System.out.println("Stage.getStage " + s.workStation);
 			if(s.workStation == workStation) 
 				return s;
 		}
@@ -76,25 +80,34 @@ public class Product implements Serializable{
 		return t;
 	}
 	
-	//may consider using LinkedHashMap
-//	public String getBarcode() {
-//		if(stages.isEmpty())
-//			return null;	
-//		return stages.values().iterator().next().ID;
-//	}
-	
 	@Override
 	public boolean equals(Object object) {
 		if(this == object) 
             return true;
         if(object instanceof Product) 
-			return ((Product)object).name.equalsIgnoreCase(name);
+			return ((Product)object).name.equalsIgnoreCase(name) && 
+				   ((Product)object).series.equalsIgnoreCase(series);
 		return 	false;
 	}
 	
+	@Override
+	public int hashCode() {
+		return series.hashCode() + name.hashCode();
+	}
+	
+	public String getSeries() {
+		return series;
+	}
+
+	public void setSeries(String series) {
+		this.series = series;
+	}
+
 	//may consider using the builder pattern and reflection to invoke method dynamically
 	//http://www.rgagnon.com/javadetails/java-0031.html
 	public static class Stage{
+		
+		private Product product;
 		private String code;
 		private int authLevel;
 		private int workStation;
@@ -106,33 +119,35 @@ public class Product implements Serializable{
 		private Map<String, Float> BOM = new HashMap<>();
 //		EnumMap<RawMaterial, Integer> BOM = new EnumMap<RawMaterial, Integer>(RawMaterial.class);;
 		
-		public Stage(String code) {
+//		public Stage(String code) {
+//			this.code = code;
+//		}
+		
+		public Stage(Product pro, String code){
+			this.product = pro;
 			this.code = code;
+			this.product.addStage(this);
 		}
 		
-//		public Stage(int ws, long stdTime) {
-//			workStation = ws;
-//			this.stdTime = stdTime;
-//		}
-//		
-//		public Stage(int ws, int id, long stdTime) {
-//			workStation = ws;
-//			workerID = id;
-//			this.stdTime = stdTime;
-//		}
+		@Override
+		public boolean equals(Object obj) {
+			if(this==obj)
+				return true;
+			if(obj instanceof Product.Stage) {
+				return this.product.equals( ((Product.Stage)obj).product)
+					&& this.code.equals( ((Product.Stage)obj).code );
+			}
+			return false;
+		}
 		
-//		public Stage(String code, long standardTime, int level) {
-//			this.code = code;
-//			this.stdTime = standardTime;
-//			this.authLevel = level;
-//		}
+		@Override
+		public int hashCode() {
+			return product.hashCode() + code.hashCode();
+		}
 		
-//		public Stage(String code, long standardTime, long minTime, long maxTime) {
-//			this.code = code;
-//			this.stdTime = standardTime;
-//			this.minTime = minTime;
-//			this.maxTime = maxTime;
-//		}
+		public Product getProduct() {
+			return this.product;
+		}
 
 		public String getCode() {
 			return code;

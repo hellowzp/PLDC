@@ -1,6 +1,6 @@
 package ui;
 
-import model.DataProcessor;
+import model.DBParser;
 import model.Product;
 import model.Repository;
 import model.Worker;
@@ -61,7 +61,7 @@ import com.xeiam.xchart.SeriesMarker;
 import com.xeiam.xchart.StyleManager;
 import com.xeiam.xchart.XChartPanel;
 
-import util.CSVReaderWriter;
+import util.AssignmentCSVReaderWriter;
 import util.FileChooser;
 import util.ProductCSVReader;
 import util.SqlServerUtil;
@@ -90,13 +90,14 @@ public class MainWindow extends JFrame {
 	
 	private JTabbedPane tabbedPanel;
 	private Repository repos = Repository.getInstance();
+	
 	private static final String ICON_PATH = System.getProperty("user.dir") + "/res/icons/";
 	private static final String TABLE_NAME = "[PLDC].[dbo]." + new SimpleDateFormat("[M/d/yyyy]").format(new Date());
 	
 	private long period;
 	private boolean runMonitor = false;
 	private final Thread monitoringThread = new Thread(new Runnable() {
-		private final DataProcessor pro = new DataProcessor(TABLE_NAME);
+		private final DBParser pro = new DBParser(TABLE_NAME);
 
 		@Override
 		public void run() {
@@ -153,6 +154,15 @@ public class MainWindow extends JFrame {
 			repos.initProducts("");
 			runMonitor = true;
 		}
+		
+		addWindowListener(new WindowAdapter() {
+			@Override
+			public void windowClosing(WindowEvent e) {
+				System.out.println("program exits!");
+				SqlServerUtil.closeConnection();
+				Repository.LOGGER.close();
+			}
+		});
 				
 //		JMenuBar menuBar = new JMenuBar();
 //		setJMenuBar(menuBar);
@@ -304,7 +314,7 @@ public class MainWindow extends JFrame {
 				public void actionPerformed(ActionEvent e) {
 					String path = FileChooser.saveAsFile();
 					if(path!=null) {
-						CSVReaderWriter.writeTableToCSV(tableView, path);
+						AssignmentCSVReaderWriter.writeTableToCSV(tableView, path);
 						JOptionPane.showMessageDialog( AssignmentPanel.this,"Saved successfully.");
 					}else{
 						JOptionPane.showMessageDialog( AssignmentPanel.this,"Please give a file name to save as.");
@@ -322,7 +332,7 @@ public class MainWindow extends JFrame {
 				public void actionPerformed(ActionEvent e) {
 					String path = FileChooser.chooseCSVFile();
 					if(path != null) {
-						Vector<Vector<String>> data = CSVReaderWriter.generateTableFromCSV(tableView, path);
+						Vector<Vector<String>> data = AssignmentCSVReaderWriter.generateTableFromCSV(tableView, path);
 						int i = 0, j = 0;
 						for(Vector<String> row : data) {
 							j = 0;
@@ -383,7 +393,7 @@ public class MainWindow extends JFrame {
 				public void valueChanged(ListSelectionEvent e) {
 					int row = tableView.getSelectedRow();
 					int col = tableView.getSelectedColumn() / 6 * 6;
-					System.out.println(row + " " + col);
+//					System.out.println(row + " " + col);
 					if(row>=0 && col>=0) {
 						stationCombox.setSelectedItem(modelData.get(row).get(col));
 						seriesCombox.setSelectedItem(modelData.get(row).get(col+1));
@@ -550,11 +560,12 @@ public class MainWindow extends JFrame {
 					for(Vector<Object> row : modelData) {
 						if(row.indexOf(null)>5 || row.indexOf(null)==-1) { //doesn't contain null, a complete row
 							Product pro = repos.getProduct((String) row.get(2));
-							System.out.println((String)row.get(3) + " ws: " + (Integer)row.get(0));
+							System.out.println("assign ws and worker for each stage: " + (String)row.get(3) + " ws: " + (Integer)row.get(0));
 							Product.Stage stage = pro.getStage((String)row.get(3));
 							stage.assignWorkStation( (Integer)row.get(0) );
-							stage.assignWorker( repos.getWorkerID( (String)row.get(4)) );
+							stage.assignWorker( repos.getWorkerID( (String)row.get(4)) );						
 						}
+						
 						if(row.indexOf(null,6)==-1) {
 							Product pro = repos.getProduct((String) row.get(8));
 							Product.Stage stage = pro.getStage((String)row.get(9));
@@ -566,6 +577,9 @@ public class MainWindow extends JFrame {
 						
 					((ProductMonitor)tabbedPanel.getComponentAt(2)).updateStages();
 					MainWindow.this.startMonitoring();
+					for(int i=1; i<=40; i++) {
+						SqlServerUtil.sendMessage(i, "Worker ID = 0");
+					}
 					
 				}
 			});
@@ -606,10 +620,10 @@ public class MainWindow extends JFrame {
 		}
 	    
 	    private String[] getSeriesList(String folderPath) {
-	    	System.out.println(folderPath);
+//	    	System.out.println(folderPath);
 	    	File folder = new File(folderPath);
 			if(!folder.isDirectory()) {
-				System.out.println("Folder needed instead!");
+//				System.out.println("Folder needed instead!");
 				return null;
 			} 
 			
@@ -634,7 +648,7 @@ public class MainWindow extends JFrame {
 			if(combox.getItemCount()>0)
 				combox.removeAllItems();
 			if(list==null) {
-				System.out.println(list);
+//				System.out.println(list);
 				return;
 			}
 			for(String s : list) {
@@ -653,7 +667,8 @@ public class MainWindow extends JFrame {
 	    private class MyTableModel extends DefaultTableModel {
 			
 	    	private static final long serialVersionUID = 1L;		
-			private MyTableModel() {
+			
+	    	private MyTableModel() {
 				tableColumns.add("Station");
 				tableColumns.add("Series");
 				tableColumns.add("Product");
@@ -752,8 +767,13 @@ public class MainWindow extends JFrame {
 			indi.setEnabled(true);
 						
 			String[] workList = new String[repos.getWorkers().size()];
-			for(int i=0; i<workList.length; i++) {
-				workList[i] = repos.getWorkers().get(i).getID() + "";
+//			for(int i=0; i<workList.length; i++) {
+//				workList[i] = repos.getWorkers().get(i).getID() + "";
+//			}
+			int i = 0;
+			for(Worker w : repos.getWorkers()){
+				workList[i] = w.getName();
+				i++;
 			}
 			workerCombox = new JComboBox<String>(workList);
 			workerCombox.setMinimumSize(new Dimension(65, 16));
@@ -924,7 +944,7 @@ public class MainWindow extends JFrame {
 			if(repos.getXDate().isEmpty()) return;
 			if(!autoMode) calculateTimeInterval();
 			
-			System.out.println("time " + startTime + " " + endTime);
+			System.out.println("MainWindow.updateDisplay(): time " + startTime + " " + endTime);
 			
 			List<Date> date = new LinkedList<Date>();
 			List<Float> effi = new LinkedList<Float>();
@@ -1055,19 +1075,18 @@ public class MainWindow extends JFrame {
 							popupPanel = new IndividualEfficiencyPanel();
 							popupPanel.setPreferredSize(getSize());
 							Component btn = popupPanel.getComponent((popupPanel.getComponentCount()-1));
-							popupPanel.remove(btn);
+							popupPanel.remove(btn); 
 							frame.add(popupPanel);
 							frame.pack();
 //							frame.setDefaultCloseOperation(DISPOSE_ON_CLOSE);
 							frame.setVisible(true);		
 							
-							btnPop.setEnabled(false);
-							
+//							btnPop.setEnabled(false);							
 							frame.addWindowListener(new WindowAdapter() {
 								public void windowClosed(WindowEvent e) {
 									frame.dispose();
 									popupPanel = null;
-									btnPop.setEnabled(true);
+//									btnPop.setEnabled(true);
 								}
 							});
 						}

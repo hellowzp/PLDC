@@ -12,7 +12,7 @@ import java.util.Vector;
 import javax.swing.JTable;
 import javax.swing.table.TableModel;
 
-public class CSVReaderWriter {
+public class AssignmentCSVReaderWriter {
 	
 	public static void writeTableToCSV(JTable table, String path) {
 		if(!path.endsWith(".csv")) path += ".csv";

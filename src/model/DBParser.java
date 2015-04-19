@@ -5,11 +5,11 @@ import java.sql.Timestamp;
 import util.SqlServerUtil;
 import model.Repository;
 
-public class DataProcessor {
+public class DBParser {
 	private String tableName;
 	private int dataID;
 		
-	public DataProcessor(String table) {
+	public DBParser(String table) {
 		this.tableName = table;
 		this.dataID = 0;				
 		SqlServerUtil.addIDKey(table);	

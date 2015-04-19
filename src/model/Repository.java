@@ -8,31 +8,45 @@ import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Set;
 
 import util.SqlServerUtil;
+import util.TextWriter;
 
 public class Repository {
 	
-	private final List<Worker> workers = loadWorkers();
+	private final Set<Worker> workers = loadWorkers();
+	private final Set<Product.Stage> stages = new HashSet<>();
 	private final List<Product> products = new ArrayList<>();
 	
+	private DateFormat DATE_FORMATTER = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.S");
+	public static final String HOME_DIRECTORY = System.getProperty("user.dir");
+	public static final String ASSIGN_DIR = HOME_DIRECTORY + "/res/assignments";
+	public static final String SERIES_DIR = HOME_DIRECTORY + "/series";
+		
 	//real-time data
-	private static final DateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.S");
 	private final List<Date> xDate = new LinkedList<>();
 	private final List<Float> yEfficiency = new LinkedList<>();
 	private final List<Float> yProductivity = new LinkedList<>();
 	private final List<Float> yPerformance = new LinkedList<>();
-	
+		
 	private static final Repository repos = new Repository();
-	
+	public static final TextWriter LOGGER = new TextWriter();
+
 	private Repository() {
 		
 	}
 	
 	public static Repository getInstance() {
 		return repos;
+	}
+	
+	//dummy method, just to load the class
+	public static void init() {
+		
 	}
 	
 	//initialize products from csv file
@@ -115,16 +129,16 @@ public class Repository {
 	public Product.Stage getStage(int workStation) {
 		for(Product p : products) {
 			Product.Stage s = p.getStage(workStation);
-			System.out.println("Repos getStage: " + s);
+			System.out.println("Repos.getStage: " + s);
 			if(s!=null) return s;
 		}
 		return null;
 	}
 
-	public List<Worker> loadWorkers() {
-		System.out.println("loading workers");
+	public Set<Worker> loadWorkers() {
+		System.out.println("Repos.loadWorkers()");
 
-		List<Worker> workers = new ArrayList<Worker>(10);
+		Set<Worker> workers = new HashSet<Worker>(10);
 		ResultSet res = SqlServerUtil.getWorkers();
 		try {
 			while(res.next()){
@@ -139,7 +153,7 @@ public class Repository {
 	//when calling this method outside this class, the class itself need to be 
 	//first initialized, which will initialize all its static members in order
 	//so loadWorkers() will be called beforehand
-	public List<Worker> getWorkers() {
+	public Set<Worker> getWorkers() {
 //		System.out.println("returning workers");
 		return workers;
 	}
@@ -199,7 +213,7 @@ public class Repository {
 		if(barcode!=null && Character.isDigit(barcode.charAt(0))) {
 			Date time = null;
 			try {
-				time = sdf.parse(ts.toString());
+				time = DATE_FORMATTER.parse(ts.toString());
 			} catch (ParseException e) {
 				e.printStackTrace();
 			}
@@ -208,20 +222,32 @@ public class Repository {
 			float avgProductivity = 0.0f;
 			float avgPerformance = 0.0f;
 			int j = 0;
-			for(int i=0; i<workers.size(); i++) {
-				Worker w = workers.get(i);
+//			for(int i=0; i<workers.size(); i++) {
+//				Worker w = workers.get(i);
+//				if(w.isWorking()) {
+//					avgEfficiency += w.getAvgEfficiency();
+//					avgProductivity += w.getProductivity();
+//					avgPerformance += w.getPerformance();
+//					j++;
+//				}
+//			}		
+			
+			for(Worker w : workers){
 				if(w.isWorking()) {
-					avgEfficiency += w.getAvgEfficiency();
+					avgEfficiency += w.getLastEfficiency();
 					avgProductivity += w.getProductivity();
 					avgPerformance += w.getPerformance();
 					j++;
 				}
-			}		
+			}
 			
-			xDate.add(time);
-			yEfficiency.add(avgEfficiency*1.0f/j);
-			yProductivity.add(avgProductivity*1.0f/j);
-			yPerformance.add(avgPerformance*1.0f/j);
+			if(avgEfficiency>0) {
+				xDate.add(time);
+				yEfficiency.add(avgEfficiency*1.0f/j);
+				yProductivity.add(avgProductivity*1.0f/j);
+				yPerformance.add(avgPerformance*1.0f/j);
+			}
+			
 		}	
 	}
 

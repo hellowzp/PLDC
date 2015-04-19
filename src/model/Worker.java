@@ -1,6 +1,5 @@
 package model;
 
-import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
@@ -12,24 +11,23 @@ import java.util.Map.Entry;
 
 import util.SqlServerUtil;
 
-public class Worker implements Serializable{
-	private static final long serialVersionUID = 1L;
+public class Worker {
 	
-	private int ID;
-	private String name;
+	private final int ID;
+	private final String name;
 	
 	public static final int NOT_STARTED = -1;
 	public static final int BREAK = 0;
 	public static final int WORKING = 1;
-	private int workState;
 	
+	private int workState;
 	private long workTime;
-	private long lastCompletionTime;
 	private int breakTimes;
+	private long lastCompletionTimestamp;
 	
 	//completed number of each stage 
 	private int completedStages;
-	private List<Product.Stage> workingStages = new ArrayList<Product.Stage>(1);
+	private List<Product.Stage> workingStages = new ArrayList<Product.Stage>(2);
 	private Map<String, Integer> scannedItems = new HashMap<>(); //raw material item code
 
 	private List<TimeLineEvent> timeLine = new LinkedList<>();
@@ -42,6 +40,21 @@ public class Worker implements Serializable{
 		this.name = name;
 		
 		workState = NOT_STARTED;
+	}
+	
+	@Override
+	public boolean equals(Object obj){
+		if(this == obj) 
+            return true;
+        if (obj instanceof Integer) {
+            return ID == ((Worker)obj).ID;
+        }
+        return false;
+	}
+	
+	@Override
+	public int hashCode() {
+		return ID; //Integer.valueOf(ID).hashCode();
 	}
 	
 	public void addAuth(int authLevel) {
@@ -90,51 +103,61 @@ public class Worker implements Serializable{
 		return standardTime;
 	}
 	
-	public long getLastCompletionTime() {  // in mS
+	public long getLastCompletionTime() { // in mS
 		int size = timeLine.size();
-		if(size<2) return -1;
-		
-		long ls = 0;  //last time line
-		String lastBarcode = null;
-		long fs = 0;  //last item
-		long bs = 0;  //break time
-		boolean stage = false; 
+		if (size < 2)
+			return -1;
+
+		long ls = 0; // last break time
+		long fs = 0; // last item time
+		long bs = 0; // total break time
+		boolean stage = false;
 		boolean stacked = false;
 		// Generate an iterator. Start just after the last element.
 		ListIterator<TimeLineEvent> it = timeLine.listIterator(timeLine.size());
 
 		// Iterate in reverse.
-		while(it.hasPrevious()) {
-		  TimeLineEvent te = it.previous();
-		  if(te.ts<lastCompletionTime) break;
-		  
-		  if(Character.isDigit( te.barcode.charAt(0)) ) {
-			  stage = true;
-			  fs = te.ts;			  
-		  }
-		  if(!stage) continue;
-		  
-		  ls = te.ts;
-		  lastBarcode = te.barcode;
-		  
-		  if( Character.isWhitespace( te.barcode.charAt(0)) ) {
-			  stacked = !stacked;
-			  if( Character.isWhitespace( lastBarcode.charAt(0)) && stacked){
-				  bs += ls - te.ts;
-			  }
-		  }
-		  
+		while (it.hasPrevious()) {
+			TimeLineEvent te = it.previous();
+			// if(te.ts<=lastCompletionTimestamp) break; //lastCompletionTimestamp has already been set to the latest ts
+
+			if(Character.isDigit(te.barcode.charAt(0))) {
+				if(!stage){
+					stage = true;
+					fs = te.ts;
+				}else{
+					lastCompletionTimestamp = te.ts;
+					break;
+				}				
+			}
+			
+			if (!stage) continue;
+
+			if (Character.isWhitespace(te.barcode.charAt(0))) {
+				if (stacked) { // is breaking
+					bs += ls - te.ts;
+				} else { // start to break, record it
+					ls = te.ts;
+				}
+				stacked = !stacked;
+			}
 		}
-		
-		long ret = fs - lastCompletionTime - bs;
-		return ret>0 ? ret : 0;
+
+		long ret = 0;
+		if (lastCompletionTimestamp > 0) {
+			ret = fs - lastCompletionTimestamp - bs;
+		} else {
+			ret = fs - getStartTime() - bs;
+		}
+		System.out.println("Worker " + ID + " getLastCompletionTime(): " + ret + "mS");
+		return ret > 0 ? ret : 0;
 	}
-	
-	public float getLastEfficiency(){
+
+	public float getLastEfficiency() {
 		long lastCmpt = getLastCompletionTime();
-		return lastCmpt<0 ? 0.0f : lastCmpt * 1.0f / getStandardTime();
+		return lastCmpt <= 0 ? 0.0f : getStandardTime() * 1.0f / lastCmpt;
 	}
-	
+
 	public float getAvgEfficiency() {
 		if(workTime == 0) return 0.0f;
 		
@@ -142,7 +165,7 @@ public class Worker implements Serializable{
 
 		if(!scannedItems.isEmpty()) {
 			for(Integer value : scannedItems.values()) 
-				standardTime += value * 5000;    //each scanning may take 5S
+				standardTime += value * 5000;    
 		}
 		
 		return standardTime * 1.0f / workTime;
@@ -222,7 +245,7 @@ public class Worker implements Serializable{
 		long lastTS = 0;
 		if(workState == NOT_STARTED) {
 			lastTS = ts;
-			lastCompletionTime = ts;
+			lastCompletionTimestamp = ts;
 		} else {
 			lastTS = ((LinkedList<TimeLineEvent>) timeLine).getLast().ts;
 		}
@@ -244,20 +267,21 @@ public class Worker implements Serializable{
 				workState = WORKING;				
 			}	
 			
-			SqlServerUtil.sendMessage(workStation, "Worker ID= " + workerId);
+			SqlServerUtil.sendMessage(workStation, "Worker ID = " + workerId);
 			
 		}else if( Character.isDigit(barcode.charAt(0)) ) {  //scan a new item
 			workState = WORKING;
 			
 			completedStages++;
 			workTime += ts - lastTS;
-			lastCompletionTime = ts;
+			lastCompletionTimestamp = ts;
 			
 			AvgEfcList.add(getAvgEfficiency());
 			
-			sendFeedbackMessage(workStation);
+			sendFeedbackMessage(barcode, workStation);
+			logCompletion(workStation);
 			
-		}else if(barcode.startsWith("A")){   //scan materials
+		}else if( barcode.startsWith("A")){   //scan materials
 			workState = WORKING;
 			Integer value = scannedItems.get(barcode);
 			if(value==null)
@@ -265,20 +289,40 @@ public class Worker implements Serializable{
 			else 
 				scannedItems.put(barcode, value+1);
 			
-			sendFeedbackMessage(workStation);
+			sendFeedbackMessage(barcode, workStation);
 			
-		}else if(barcode.startsWith("P")) {  //final product
-			sendFeedbackMessage(workStation);
+		}else if( Character.isLetter(barcode.charAt(0)) ) {  //P:final product, X:unknown
+			workState = WORKING;
+//			sendFeedbackMessage(barcode, workStation);
 		}
 		
 	}
 	
-	private void sendFeedbackMessage(int workStation) {
+	private void logCompletion(int workStation) {
+		String stage = Repository.getInstance().getStage(workStation).getCode();
 		long t = getLastCompletionTime();
 		if(t>0) t = t/1000; 
 		else t = 0;
-		int f = (int) (getAvgEfficiency() * 100);	
-		SqlServerUtil.sendMessage(workStation, "E"+f+"%"+"Q"+completedStages+"T"+t+"sec");		
+		System.out.println("log: " + stage+","+t+","+name);
+		Repository.LOGGER.write(stage+","+t+","+name);	
+	}
+
+	private void sendFeedbackMessage(String barcode, int workStation) {
+		long t = getLastCompletionTime();
+		if(t>0) t = t/1000; 
+		else t = 0;
+		int f = (int) (getLastEfficiency() * 100);	
+		
+		StringBuilder msg = new StringBuilder(32);
+		msg.append(barcode);
+		for(int i=msg.length(); i<16; i++) {
+			msg.append(" ");
+		}
+		
+		msg.append("E"+f+"%"+"Q"+completedStages+"T"+t+"sec");
+		System.out.println(msg.toString()+msg.length());
+		SqlServerUtil.sendMessage(workStation, msg.toString());
+		
 	}
 	
 	public void printTimeLine() {

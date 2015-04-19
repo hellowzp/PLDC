@@ -7,25 +7,30 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
+
 import model.Product;
+import model.Repository;
 import model.Worker;
 
 public class ProductCSVReader {
-	//a map of product name to its stages
-	//a linked hashmap can maintain the order an element is added
-//	private Map<String,List<String>> products = new LinkedHashMap<>();
-//	private List<Product.Stage> stageList = new ArrayList<>();
-	private String url;
-	private List<Product> products = new ArrayList<>();
-	private List<Worker> workers = new ArrayList<>();
 	
-	public ProductCSVReader(String url) {		
-		this.url = url;
+	private String uri;
+//	private List<Product> products = new ArrayList<>();
+//	private List<Worker> workers = new ArrayList<>();
+	
+	private List<Product> products = new ArrayList<>(5);
+	private List<Product.Stage> stages = new ArrayList<>();
+	private Set<Worker> workers = Repository.getInstance().getWorkers();
+	
+	public ProductCSVReader(String uri) {		
+		this.uri = uri;
 		BufferedReader br = null;
 		try {
-			br = new BufferedReader(new FileReader(url));
+			br = new BufferedReader(new FileReader(uri));
 		} catch (FileNotFoundException e) {
 			e.printStackTrace();
+			System.exit(0);
 		}
 		
 		String line = null;
@@ -39,10 +44,10 @@ public class ProductCSVReader {
 		try{
 			while((line = br.readLine()) != null && !line.contains("#")) {
 				String[] values = line.split(",");
-				Product pro = new Product(values[0]);
+				Product pro = new Product(getSeriesName(),values[0]);
 				for(int i=1; i<values.length; i++) {
-					Product.Stage stage = new Product.Stage(values[i]);
-					pro.addStage(stage);
+					Product.Stage stage = new Product.Stage(pro, values[i]);
+					stages.add(stage);
 				}
 				products.add(pro);
 			}
@@ -127,7 +132,7 @@ public class ProductCSVReader {
 	}
 	
 	public String getSeriesName() {
-		String fName = new File(url).getName();
+		String fName = new File(uri).getName();
 		return fName.substring(0, fName.length()-4);
 	}
 	

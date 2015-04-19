@@ -23,13 +23,13 @@ public class SqlServerUtil {
 	private static final Connection con = createConnection();
 	
 	public SqlServerUtil() {
-		System.out.println("constructor");
+		System.out.println("sql util constructor");
 	}
 	
 	private static Connection createConnection() {
 		Connection con = null;
 		try {
-			String conString = "jdbc:sqlserver://localhost\\SQLEXPRESS:1433;" +
+			String conString = "jdbc:sqlserver://PLDC-PC\\SQLEXPRESS:1433;" +
 							   "databaseName=PLDC;" +     // windows authentication
 							   "integratedSecurity=true"; // driver//serverName\\instance:port (port and instance not required if default)
 			con = DriverManager.getConnection(conString); 
@@ -38,6 +38,15 @@ public class SqlServerUtil {
 		}
 		System.out.println("connected successfully!");
 		return con;
+	}
+	
+	public static void closeConnection() {
+		try {
+			if(!con.isClosed()) 
+				con.close();
+		} catch (SQLException e) {
+			e.printStackTrace();
+		}
 	}
 	
 	public static void addIDKey(String table) {
