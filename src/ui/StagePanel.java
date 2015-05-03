@@ -189,19 +189,25 @@ public class StagePanel extends JPanel{
 		Worker w = Repository.getInstance().getWorker(stage.getWorkerID());
 		if(w.getScannedMaterials().isEmpty()) return;
 		
-		String[] columns = {"Material", "Stock"};
+		String[] columnNames = {"Material", "Stock"};
 		Map<String,Float> bomMap = stage.getBOM();
 		String[][] bomInventory = new String[bomMap.size()][2]; 
 		int i = 0;
 		for(String s: bomMap.keySet()) {
 			bomInventory[i][0] = s;
-			int scannedSource = w.getScannedMaterials().get(s);
-			float consumption = w.getCompletedStages() * stage.getBOM().get(s);
-			bomInventory[i][1] = scannedSource - consumption + ""; 
+			Integer bomValue = w.getScannedMaterials().get(s);
+//			bomInventory[i][1] =  bomValue == null ? "Unknown" : bomValue.toString();
+			if(bomValue!=null) {
+				int scannedSource = w.getScannedMaterials().get(s);
+				float consumption = w.getCompletedStages() * stage.getBOM().get(s);
+				bomInventory[i][1] = (int)(scannedSource - consumption) + ""; 
+			} else {
+				bomInventory[i][1] = "Unknown";
+			}
 			i++;
 		}
 		
-		JTable table = new JTable(bomInventory, columns);
+		JTable table = new JTable(bomInventory, columnNames);
 		table.getColumnModel().getColumn(0).setPreferredWidth(150);
 		table.getColumnModel().getColumn(0).setPreferredWidth(50);		
 		final JScrollPane pane = new JScrollPane(table);

@@ -28,7 +28,7 @@ public class Worker {
 	//completed number of each stage 
 	private int completedStages;
 	private List<Product.Stage> workingStages = new ArrayList<Product.Stage>(2);
-	private Map<String, Integer> scannedItems = new HashMap<>(); //raw material item code
+	private Map<String, Integer> scannedMaterials = new HashMap<>(); //raw material item code
 
 	private List<TimeLineEvent> timeLine = new LinkedList<>();
 	private List<Float> AvgEfcList = new LinkedList<>();
@@ -163,8 +163,8 @@ public class Worker {
 		
 		long standardTime = getStandardTime() * completedStages;
 
-		if(!scannedItems.isEmpty()) {
-			for(Integer value : scannedItems.values()) 
+		if(!scannedMaterials.isEmpty()) {
+			for(Integer value : scannedMaterials.values()) 
 				standardTime += value * 5000;    
 		}
 		
@@ -220,23 +220,23 @@ public class Worker {
 	}
 	
 	public Map<String,Integer> getScannedMaterials() {
-		return scannedItems;
+		return scannedMaterials;
 	}
 	
 	//mtr: BOM material in setting file
-	public int getScannedMaterialAmount(String mtr) {
-		if(scannedItems.isEmpty()) return 0;
-		for(Entry<String, Integer> entry : scannedItems.entrySet()) {
-			String key = entry.getKey();
-			if(key.indexOf(mtr)>0) {
-				int qIndex = key.lastIndexOf("Q");
-//				int iIndex = key.lastIndexOf("I");
-				int qty = Integer.valueOf(key.substring(qIndex+1, key.length()));
-				return completedStages * qty;
-			}
-		}
-		return -1;
-	}
+//	private int getScannedMaterialAmount(String mtr) {
+//		if(scannedMaterials.isEmpty()) return 0;
+//		for(Entry<String, Integer> entry : scannedMaterials.entrySet()) {
+//			String key = entry.getKey();
+//			if(key.indexOf(mtr)>0) {
+//				int qIndex = key.lastIndexOf("Q");
+////				int iIndex = key.lastIndexOf("I");
+//				int qty = Integer.valueOf(key.substring(qIndex+1, key.length()));
+//				return completedStages * qty;
+//			}
+//		}
+//		return -1;
+//	}
 	
 	public void addTimeLineEvent(long ts, int workStation, int workerId, String barcode) {
 		//if no timeline available, set lastTime to ts so the calculated work-time is 0 
@@ -250,7 +250,7 @@ public class Worker {
 			lastTS = ((LinkedList<TimeLineEvent>) timeLine).getLast().ts;
 		}
 		
-		System.out.println("worker read data: " + workStation + " " + this.ID + " " + barcode + " " + workState);
+		System.out.println("worker read data: " + workStation + " " + workerId + " " + barcode + " " + workState);
 
 //		System.out.println(barcode);
 		if(barcode==null) barcode = new String("  ");
@@ -270,8 +270,7 @@ public class Worker {
 			SqlServerUtil.sendMessage(workStation, "Worker ID = " + workerId);
 			
 		}else if( Character.isDigit(barcode.charAt(0)) ) {  //scan a new item
-			workState = WORKING;
-			
+			workState = WORKING;		
 			completedStages++;
 			workTime += ts - lastTS;
 			lastCompletionTimestamp = ts;
@@ -281,18 +280,42 @@ public class Worker {
 			sendFeedbackMessage(barcode, workStation);
 			logCompletion(workStation);
 			
-		}else if( barcode.startsWith("A")){   //scan materials
+		}else if( barcode.contains("I") && barcode.contains("Q")){   //scan materials
 			workState = WORKING;
-			Integer value = scannedItems.get(barcode);
+			workTime += ts - lastTS;
+			
+			StringBuilder normalizedCode = new StringBuilder(barcode);
+			int slash = normalizedCode.indexOf("/");
+			if(slash>0 && slash<barcode.length()-1) {
+				normalizedCode.replace(slash, slash+1, "");
+			}
+			
+			int qIndex = barcode.lastIndexOf("Q");
+			int qty = Integer.valueOf(barcode.substring(qIndex+1, barcode.length()));
+			
+			int iIndex = normalizedCode.lastIndexOf("I");
+			normalizedCode.setLength(iIndex+1);
+			for(int i=0; i<normalizedCode.length(); i++){
+				char c = normalizedCode.charAt(i);
+				if(Character.isLetter(c)) {
+					c = Character.toUpperCase(c);
+					normalizedCode.setCharAt(i, c);
+				}
+			}
+			barcode = normalizedCode.substring(0, iIndex+1);
+			System.err.println("normalized code: "  + barcode);
+			
+			Integer value = scannedMaterials.get(barcode);
 			if(value==null)
-				scannedItems.put(barcode, 1);
+				scannedMaterials.put(barcode, qty);
 			else 
-				scannedItems.put(barcode, value+1);
+				scannedMaterials.put(barcode, value+qty);
 			
 			sendFeedbackMessage(barcode, workStation);
 			
 		}else if( Character.isLetter(barcode.charAt(0)) ) {  //P:final product, X:unknown
 			workState = WORKING;
+			workTime += ts - lastTS;
 //			sendFeedbackMessage(barcode, workStation);
 		}
 		

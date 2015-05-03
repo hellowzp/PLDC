@@ -24,18 +24,19 @@ public class ProductMonitor extends JPanel  implements RealTimeDisplay{
 			add(p);
 		}		
 	}
+	
+	@Override
+	public void init() {
+		for(int i=1; i<=40; i++) {
+			stagePanels.get(i-1).setStage(Repository.getInstance().getStage(i));
+		}
+		updateDisplay();
+	}
 
 	@Override
 	public void updateDisplay() {
 		for(StagePanel s : stagePanels) {
 			s.updateDisplay();
 		}
-	}
-
-	public void updateStages() {
-		for(int i=1; i<=40; i++) {
-			stagePanels.get(i-1).setStage(Repository.getInstance().getStage(i));
-		}
-		updateDisplay();
 	}
 }

@@ -6,26 +6,30 @@ import java.sql.Timestamp;
 import java.text.DateFormat;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
-import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Set;
 
+import model.Product.Stage;
+import util.Assert;
 import util.SqlServerUtil;
 import util.TextWriter;
 
 public class Repository {
 	
-	private final Set<Worker> workers = loadWorkers();
-	private final Set<Product.Stage> stages = new HashSet<>();
-	private final List<Product> products = new ArrayList<>();
+	private Set<Worker> workers;
+	private Set<Product.Stage> stages;
+	private List<Product> products;
 	
 	private DateFormat DATE_FORMATTER = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.S");
 	public static final String HOME_DIRECTORY = System.getProperty("user.dir");
 	public static final String ASSIGN_DIR = HOME_DIRECTORY + "/res/assignments";
 	public static final String SERIES_DIR = HOME_DIRECTORY + "/series";
+	
+	public static final String ICON_PATH = HOME_DIRECTORY + "/res/icons";
 		
 	//real-time data
 	private final List<Date> xDate = new LinkedList<>();
@@ -49,70 +53,58 @@ public class Repository {
 		
 	}
 	
-	//initialize products from csv file
+//	public void initProducts(List<Product> products) {
+//		clearData();
+//		this.products.addAll(products);
+//	}
+//	
 //	public void initProducts(String path) {
-//		if (!path.endsWith(".csv"))
-//			return;
-//
-//		BufferedReader br = null;
-//		try {
-//			br = new BufferedReader(new FileReader(path));
-//		} catch (FileNotFoundException e) {
-//			e.printStackTrace();
-//		}
-//
-//		try {
-//			String line = br.readLine();
-//			final String[] columns = line.split(",");
-//			//take care of the last dummy row: end of file
-//			while ((line = br.readLine()) != null && line.length()>5) {
-//				String[] values = line.split(",");
-////				System.out.println(line + " " + values.length);
-////				for(int i=0; i<values.length; i++) System.out.println(i+values[i]+i);
-////				System.out.flush();
-//				String proName = values[0];
-//
-//				Product pro = getProduct(proName);
-//				if (pro == null) {
-//					pro = new Product(proName);
-//					products.add(pro);
-//				}
-//
-//				int workStation = Integer.valueOf(values[1]);
-//				long stdTime = (long) (Float.valueOf(values[2]) * 60000);
-//				Product.Stage stage = new Product.Stage(workStation, stdTime);
-//
-//				for (int i = 3; i < values.length; i++) {
-//					String material = columns[i];
-//					int amount = Integer.valueOf(values[i]);
-//					stage.addBOM(material, amount);
-//				}
-//				
-//				pro.addStage(stage);
-//
-//			}
-//		} catch (IOException e) {
-//			e.printStackTrace();
-//		}
-//
+//		clearData();
 //	}
 	
-	public void initProducts(List<Product> products) {
-		clearData();
-		this.products.addAll(products);
+	public void initStages(Set<Product.Stage> stages) {
+		Assert.assertNotNull(stages, "stages can not be null");
+		System.out.println("Repos.initStages()");
+		this.stages = stages;
 	}
 	
-	public void initProducts(String path) {
-		clearData();
+	public void initWorkers() {
+		workers = loadWorkers();
+		Assert.assertNotNull(workers, null);
+		System.out.println("Repos.initWorkers()");
 	}
 	
-	private void clearData() {
-		products.clear();
-		xDate.clear();
-		yEfficiency.clear();
-		yProductivity.clear();
-		yPerformance.clear();
+	public void initWorkers(Set<Worker> workers) {
+		Assert.assertNotNull(workers, null);
+		System.out.println("Repos.initWorkers()");
+		this.workers = workers;
 	}
+	
+	public void init(String path) {
+		
+	}
+	
+	public void cleanStages() {
+		Assert.assertNotNull(stages, null);
+		Assert.assertNotNull(workers, null);
+		
+		Iterator<Product.Stage> stageItr = stages.iterator();
+		Product.Stage stage = null;
+		while(stageItr.hasNext()) {
+			stage = stageItr.next();
+			if(stage.workStation == -1) { //not assigned
+				stageItr.remove();
+			} 
+		}
+	}
+	
+//	private void clearData() {
+//		products.clear();
+//		xDate.clear();
+//		yEfficiency.clear();
+//		yProductivity.clear();
+//		yPerformance.clear();
+//	}
 	
 	public List<Product> getProducts() {
 		return products;
@@ -126,16 +118,32 @@ public class Repository {
 		return null;
 	}
 	
+	public Set<Product.Stage> getStages() {
+		return stages;
+	}
+	
 	public Product.Stage getStage(int workStation) {
-		for(Product p : products) {
-			Product.Stage s = p.getStage(workStation);
-			System.out.println("Repos.getStage: " + s);
-			if(s!=null) return s;
+		Iterator<Product.Stage> stageItr = stages.iterator();
+		Product.Stage stage = null;
+		while(stageItr.hasNext()) {
+			 stage = stageItr.next();
+			if(stage.getWorkStation() == workStation ){
+				return stage;
+			} 
+		}
+		
+		return null;
+	}
+	
+	public Stage getStage(String stageCode) {
+		for(Product.Stage s : stages) {
+			if(s.getCode().equals(stageCode))
+				return s;
 		}
 		return null;
 	}
 
-	public Set<Worker> loadWorkers() {
+	private Set<Worker> loadWorkers() {
 		System.out.println("Repos.loadWorkers()");
 
 		Set<Worker> workers = new HashSet<Worker>(10);
@@ -166,6 +174,14 @@ public class Repository {
 		return null;
 	}
 	
+	public Worker getWorker(String name){
+		for(Worker w : workers){
+			if(w.getName().equals(name)) 
+				return w;
+		}
+		return null;
+	}
+	
 	public String getWorkerName(int id) {
 		return getWorker(id)==null ? null : getWorker(id).getName();
 	}
@@ -186,23 +202,29 @@ public class Repository {
 		return n;
 	}
 	
-	public Worker getStageWorker(int ws) {
+	public Worker getStationWorker(int ws) {
 		Worker w = null;
-		for(Product p : products) {
-			for(Product.Stage s : p.getStages()) {
-				if(s.getWorkStation()==ws)
-					return getWorker(s.getWorkerID());
-			}
+		for(Product.Stage s : stages) {
+			if(s.getWorkStation()==ws)
+				return getWorker(s.getWorkerID());
 		}
+		
+//		for(Product p : products) {
+//			for(Product.Stage s : p.getStages()) {
+//				if(s.getWorkStation()==ws)
+//					return getWorker(s.getWorkerID());
+//			}
+//		}
+		
 		return w;
 	}
 
 	public void readEvent(Timestamp ts, int workStation, int workerId, String barcode) {
 		//get worker based on the assignment
-		Worker worker = getStageWorker(workStation);
+		Worker worker = getStationWorker(workStation);
 		
 		if(worker==null) { //work station 17 status = 1 and count =1 (count = 3?  at 324)
-			System.out.println("Cannot find worker at station " + workStation + " with ID " + workerId);
+			System.err.println("Cannot find worker at station " + workStation + " with ID " + workerId);
 		}else{
 			worker.addTimeLineEvent(ts.getTime(), workStation, workerId, barcode);
 //			if(workerId!=0 && worker.getID() != workerId)
@@ -266,4 +288,10 @@ public class Repository {
 	public List<Float> getyPerformance() {
 		return yPerformance;
 	}
+
+	public void assignWorker(Stage stage, int id) {
+		stage.workerID = id;
+		getWorker(id).addStage(stage);
+	}
+	
 }

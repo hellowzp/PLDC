@@ -107,16 +107,16 @@ public class Product {
 	//http://www.rgagnon.com/javadetails/java-0031.html
 	public static class Stage{
 		
-		private Product product;
-		private String code;
-		private int authLevel;
-		private int workStation;
-		private int workerID;
-		private long stdTime;  //in mS
-		private long minTime;
-		private long maxTime;
+		Product product;
+		String code;
+		int authLevel;
+		int workStation = -1;
+		int workerID;
+		long stdTime;  //in mS
+		long minTime;
+		long maxTime;
 		
-		private Map<String, Float> BOM = new HashMap<>();
+		Map<String, Float> BOM = new HashMap<>();
 //		EnumMap<RawMaterial, Integer> BOM = new EnumMap<RawMaterial, Integer>(RawMaterial.class);;
 		
 //		public Stage(String code) {
@@ -134,15 +134,14 @@ public class Product {
 			if(this==obj)
 				return true;
 			if(obj instanceof Product.Stage) {
-				return this.product.equals( ((Product.Stage)obj).product)
-					&& this.code.equals( ((Product.Stage)obj).code );
+				return this.code.equals( ((Product.Stage)obj).code );
 			}
 			return false;
 		}
 		
 		@Override
 		public int hashCode() {
-			return product.hashCode() + code.hashCode();
+			return code.hashCode();
 		}
 		
 		public Product getProduct() {
@@ -182,8 +181,9 @@ public class Product {
 		}
 
 		public void assignWorker(int id) {
-			this.workerID = id;
-			Repository.getInstance().getWorker(id).addStage(this);
+			Repository.getInstance().assignWorker(this, id);
+//			this.workerID = id;
+//			Repository.getInstance().getWorker(id).addStage(this);
 		}
 
 		public void addBOM(String rw, float quantity) {

@@ -86,11 +86,11 @@ public class SqlServerUtil {
 	public static ResultSet getData(String table, int ID) {
 		PreparedStatement preStat = null;
 		ResultSet res = null;
-		String sql = "select * from " + table + " where ID > ?"; // AND ID <= ?" ;
+		String sql = "select * from " + table + " where ID > ? AND ID <= ?" ;
 		try {
 			preStat = con.prepareStatement(sql);
 			preStat.setInt(1, ID);
-//			preStat.setInt(2, ID+20);
+			preStat.setInt(2, ID+5);
 			res = preStat.executeQuery();
         } catch (SQLException e) {
 			e.printStackTrace();
